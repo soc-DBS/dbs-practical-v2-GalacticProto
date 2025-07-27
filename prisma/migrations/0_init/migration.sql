@@ -1,4 +1,4 @@
-npx prisma migrate resolve --applied 0_init-- CreateTable
+
 CREATE TABLE "course" (
     "crse_code" VARCHAR(5) NOT NULL,
     "crse_name" VARCHAR(100) NOT NULL,

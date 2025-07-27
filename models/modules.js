@@ -1,68 +1,82 @@
-const { query } = require('../database');
-const { EMPTY_RESULT_ERROR, SQL_ERROR_CODE, UNIQUE_VIOLATION_ERROR } = require('../errors');
+const { PrismaClient, Prisma } = require('@prisma/client');
+const prisma = new PrismaClient();
 
 module.exports.create = function create(code, name, credit) {
-    return query('CALL create_module($1, $2, $3)', [code, name, credit])
-        .then(function (result) {
-            console.log('Module created successfully');
-        })
-        .catch(function (error) {
-            throw error;
-        });
-};
-
-module.exports.retrieveByCode = function retrieveByCode(code) {
-    const sql = `SELECT * FROM module WHERE mod_code = $1`;
-    return query(sql, [code]).then(function (result) {
-        const rows = result.rows;
-
-        if (rows.length === 0) {
-            // Note: result.rowCount returns the number of rows processed instead of returned
-            // Read more: https://node-postgres.com/apis/result#resultrowcount-int--null
-            throw new EMPTY_RESULT_ERROR(`Module ${code} not found!`);
-        }
-
-        return rows[0];
-    });
-};
-
-module.exports.deleteByCode = function deleteByCode(code) {
-    const sql = 'CALL delete_module($1)';
-    return query(sql, [code])
-        .then(function (result) {
-            console.log('Module deleted successfully');
-        }).catch(function (error) {
-            throw error;
-        });
+  return prisma.module.create({
+    data: {
+      modCode: code,
+      modName: name,
+      creditUnit: parseInt(credit)
+    }
+  }).then(function (module) {
+    return module;
+  }).catch(function (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === 'P2002') {
+        // Unique constraint violation (e.g., module code already exists)
+        throw new Error('A module with this code already exists.');
+      }
+    }
+    // Rethrow other errors
+    throw error;
+  });
 };
 
 module.exports.updateByCode = function updateByCode(code, credit) {
-const sql = 'CALL update_module($1, $2)';
-return query (sql, [code. credit])
-    .then (function(result){
-        console.log('Module Updated sucessfully');
-    }).catch(function(error){
-        throw error;
-    });
+  return prisma.module.update({
+    where: {
+      modCode: code
+    },
+    data: {
+      creditUnit: parseInt(credit)
+    }
+  }).then(function (module) {
+    return module; // Return the updated module
+  }).catch(function (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === 'P2025') {
+        // Record not found
+        throw new Error(`Module with code ${code} not found.`);
+      }
+    }
+    throw error;
+  });
+};
+
+module.exports.deleteByCode = function deleteByCode(code) {
+  return prisma.module.delete({
+    where: {
+      modCode: code
+    }
+  }).then(function (module) {
+    return module; // Return the deleted module
+  }).catch(function (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === 'P2025') {
+        // Record not found
+        throw new Error(`Module with code ${code} not found.`);
+      }
+    }
+    throw error;
+  });
 };
 
 module.exports.retrieveAll = function retrieveAll() {
-    const sql = `SELECT * FROM module`;
-    return query(sql).then(function (result) {
-        return result.rows;
-    });
+  return prisma.module.findMany();
 };
 
-module.exports.retrieveBulk = function retrieveBulk(codes) {
-    const sql = 'SELECT * FROM module WHERE code IN ($1)';
-    return query(sql, [codes]).then(function (response) {
-        const rows = response.rows;
-        const result = {};
-        for (let i = 0; i < rows.length; i += 1) {
-            const row = rows[i];
-            const code = row.code;
-            result[code] = row;
-        }
-        return result;
-    });
+module.exports.retrieveByCode = function retrieveByCode(code) {
+  return prisma.module.findUnique({
+    where: {
+      modCode: code
+    }
+  }).then(function (module) {
+    if (!module) {
+      // If no module was found, manually throw error (Prisma won't throw P2025 here)
+      throw new Error(`Module with code ${code} not found.`);
+    }
+    return module;
+  }).catch(function (error) {
+    throw error; // Let other unexpected errors bubble up
+  });
 };
